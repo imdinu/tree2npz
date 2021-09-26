@@ -1,6 +1,6 @@
 # **tree2npz**: extract ROOT Tree branches as numpy binaries
 
-Given a Tree and a Branch name, the script provided here will extract the data from that branch and store the content as a ```npz``` archive. This tool can read and decompress ROOT Tree files in parallel, making it a fast option for Machine Learning Feature Engineering.
+Given a Tree and a Branch name, the script provided here will extract the data from that branch and store the content as a *.npz* archive. This tool can read and decompress ROOT Tree files in parallel, making it a fast option for Machine Learning Feature Engineering.
 
 ## Quick setup
 After making sure you have ```Python``` and ```pip``` installed; you just need to install a few dependencies:
@@ -10,7 +10,7 @@ $ pip install --user -r requirements.txt
 
 For basic usage instructions try:
 ```sh
-$ ./tree2npz --help
+$ ./tree2npz.py --help
 ```
 
 ## Additional Notes:

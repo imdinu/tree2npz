@@ -39,6 +39,46 @@ def merge(tmp_dir, fname):
     np.savez(fname, MM_Image=data)
     shutil.rmtree(tmp_dir)
     
+# Function that creates configuration dictionaries
+def create_configs(path: Path, tree: str, branch: str,
+                   chunk_size: int, tmp_dir: Path):
+    # Get the number of entries
+    n = get_tree_entries(path, tree)
+
+    # Slice all events into chunks, acoording to the given chunk_size
+    slices = np.arange(0, n, chunk_size)
+    if slices[-1] < n:
+        slices = np.append(slices,n)
+
+    # Make tuples containing the first and last event for each chunk
+    slices = [(a,b) for a,b in zip(slices[:-1], slices[1:])]
+
+
+    # Common configuration options to all parallel processes
+    base_config = {"tree": tree,
+                   "file": path,
+                   "branch": branch,
+                   "tmp_dir": tmp_dir}
+
+    # Create a configuration dictionary for every chunk by appending the slice
+    return [{**base_config, **{"slc":s, "no":no}} 
+                for no, s in enumerate(slices)]
+
+# Execute the full workfow
+def extract(args: dict):
+    # Create the configuration for each process
+    configs = create_configs(args["path"], args["tree"], args["branch"], 
+                                args["chunk_size"], args["tmp_dir"])
+
+    # Start a parallel process for each configuration 
+    # (Up to the maximum simultaneous allowed)
+    # Use `tqdm` for tracking progress
+    with ProcessPoolExecutor(max_workers=args["j"]) as executor:
+        # this list conversion seems necessary to `tqdm` 🤷🏻
+        list(tqdm.tqdm(executor.map(run, configs), total=len(configs)))
+
+    # Finally merge all the temporary files created into a single result       
+    merge(args["tmp_dir"], args["output"])
 
 if __name__ == "__main__":
     # Define command line arguments
@@ -64,37 +104,11 @@ if __name__ == "__main__":
                         default=50, type=int, 
                         help="number of events to be processed for "
                         "each chunk")
+
+    # Parse command-line arguments
     args = parser.parse_args()
 
+    # Run the script
+    extract(vars(args))
 
-    # Get the number of entries
-    n = get_tree_entries(args.path, args.tree)
-
-    # Slice all events into chunks, acoording to the given chunk_size
-    slices = np.arange(0,n,args.chunk_size)
-    if slices[-1] < n:
-        slices = np.append(slices,n)
-
-    # Make tuples containing the first and last event for each chunk
-    slices = [(a,b) for a,b in zip(slices[:-1], slices[1:])]
-
-
-    # Common configuration options to all parallel processes
-    base_config = {"tree": args.tree,
-                   "file": args.path,
-                   "branch": args.branch,
-                   "tmp_dir": args.tmp_dir}
-
-    # Create a configuration dictionary for every chunk by appending the slice
-    configs = [{**base_config, **{"slc":s, "no":no}} 
-                for no, s in enumerate(slices)]
-
-    # Start a parallel process for each configuration 
-    # (Up to the maximum simultaneous allowed)
-    # Use `tqdm` for tracking progress
-    with ProcessPoolExecutor(max_workers=args.j) as executor:
-        # this list conversion seems necessary to `tqdm` 🤷🏻
-        list(tqdm.tqdm(executor.map(run, configs), total=len(configs)))
-
-    # Finally merge all the temporary files created into a single result       
-    merge(args.tmp_dir, args.output)
+    
