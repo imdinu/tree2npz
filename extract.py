@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import glob
 from pathlib import Path
 import shutil
@@ -65,20 +66,36 @@ def create_configs(path: Path, tree: str, branch: str,
                 for no, s in enumerate(slices)]
 
 # Execute the full workfow
-def extract(args: dict):
+def extract_parallel(path, tree, branch, chunk_size=50, 
+                    j=None, tmp_dir=Path("./tmp"), 
+                    output=Path("images.npz"),
+                    **kwargs):
     # Create the configuration for each process
-    configs = create_configs(args["path"], args["tree"], args["branch"], 
-                                args["chunk_size"], args["tmp_dir"])
+    configs = create_configs(path, tree, branch, 
+                            chunk_size, tmp_dir)
+
+    # Check if the temporary directory exists
+    if not tmp_dir.exists():
+        os.mkdir(tmp_dir)
 
     # Start a parallel process for each configuration 
     # (Up to the maximum simultaneous allowed)
     # Use `tqdm` for tracking progress
-    with ProcessPoolExecutor(max_workers=args["j"]) as executor:
+    with ProcessPoolExecutor(max_workers=j) as executor:
         # this list conversion seems necessary to `tqdm` 🤷🏻
         list(tqdm.tqdm(executor.map(run, configs), total=len(configs)))
 
     # Finally merge all the temporary files created into a single result       
-    merge(args["tmp_dir"], args["output"])
+    merge(tmp_dir, output)
+
+# Function to extract multiple uncompressed branches
+def extract_uncompressed(path, tree, branches, j=20, 
+                         output=Path("scalars.npz"),
+                         **kwargs):
+    with uproot.open(path, num_workers=j) as file:
+        t = file[tree]
+        arrs = t.arrays(branches, library="np")
+        np.savez(output, **arrs)
 
 if __name__ == "__main__":
     # Define command line arguments
@@ -109,6 +126,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Run the script
-    extract(vars(args))
+    extract_parallel(**vars(args))
 
     
