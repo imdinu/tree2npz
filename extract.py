@@ -79,13 +79,13 @@ def extract_parallel(path, tree, branch, chunk_size=50,
         os.mkdir(tmp_dir)
 
     # Start a parallel process for each configuration 
-    # (Up to the maximum simultaneous allowed)
+    # (Up to the maximum allowed simultaneously)
     # Use `tqdm` for tracking progress
     with ProcessPoolExecutor(max_workers=j) as executor:
         # this list conversion seems necessary to `tqdm` 🤷🏻
         list(tqdm.tqdm(executor.map(run, configs), total=len(configs)))
 
-    # Finally merge all the temporary files created into a single result       
+    # Finally merge all the temporary files into a single result       
     merge(tmp_dir, output)
 
 # Function to extract multiple uncompressed branches
